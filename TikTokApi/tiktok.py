@@ -1,28 +1,24 @@
 import asyncio
-import logging
 import dataclasses
-from typing import Any
+import json
+import logging
 import random
 import time
-import json
+from typing import Any
+from urllib.parse import quote, urlencode, urlparse
 
 from playwright.async_api import async_playwright
-from urllib.parse import urlencode, quote, urlparse
-from .stealth import stealth_async
-from .helpers import random_choice
 
+from .api.comment import Comment
+from .api.hashtag import Hashtag
+from .api.search import Search
+from .api.sound import Sound
+from .api.trending import Trending
 from .api.user import User
 from .api.video import Video
-from .api.sound import Sound
-from .api.hashtag import Hashtag
-from .api.comment import Comment
-from .api.trending import Trending
-from .api.search import Search
-
-from .exceptions import (
-    InvalidJSONException,
-    EmptyResponseException,
-)
+from .exceptions import EmptyResponseException, InvalidJSONException
+from .helpers import random_choice
+from .stealth import stealth_async
 
 
 @dataclasses.dataclass
@@ -104,6 +100,10 @@ class TikTokApi:
             "() => Intl.DateTimeFormat().resolvedOptions().timeZone"
         )
 
+        """環境を強制的に日本語に指定"""
+        language = "ja-JP"
+        region = "JP"
+
         session_params = {
             "aid": "1988",
             "app_language": language,
@@ -126,7 +126,7 @@ class TikTokApi:
             "os": platform,
             "priority_region": "",
             "referer": "",
-            "region": "US",  # TODO: TikTokAPI option
+            "region": region,  # TODO: TikTokAPI option
             "screen_height": screen_height,
             "screen_width": screen_width,
             "tz_name": timezone,
@@ -173,9 +173,11 @@ class TikTokApi:
         if suppress_resource_load_types is not None:
             await page.route(
                 "**/*",
-                lambda route, request: route.abort()
-                if request.resource_type in suppress_resource_load_types
-                else route.continue_(),
+                lambda route, request: (
+                    route.abort()
+                    if request.resource_type in suppress_resource_load_types
+                    else route.continue_()
+                ),
             )
 
         await page.goto(url)
@@ -427,14 +429,18 @@ class TikTokApi:
                 raise Exception("TikTokApi.run_fetch_script returned None")
 
             if result == "":
-                raise EmptyResponseException(result, "TikTok returned an empty response")
+                raise EmptyResponseException(
+                    result, "TikTok returned an empty response"
+                )
 
             try:
                 data = json.loads(result)
                 if data.get("status_code") != 0:
                     self.logger.error(f"Got an unexpected status code: {data}")
                 return data
-            except json.decoder.JSONDecodeError:
+                if data.get("status_code") is None:
+                    raise EmptyResponseException
+            except (json.decoder.JSONDecodeError, EmptyResponseException):
                 if retry_count == retries:
                     self.logger.error(f"Failed to decode json response: {result}")
                     raise InvalidJSONException()
