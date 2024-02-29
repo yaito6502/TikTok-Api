@@ -438,12 +438,14 @@ class TikTokApi:
                 if data.get("status_code") != 0:
                     self.logger.error(f"Got an unexpected status code: {data}")
                 if data.get("status_code") is None:
-                    raise EmptyResponseException
+                    raise EmptyResponseException(
+                        result, "TikTok returned an empty json responce"
+                    )
                 return data
             except (json.decoder.JSONDecodeError, EmptyResponseException):
                 if retry_count == retries:
                     self.logger.error(f"Failed to decode json response: {result}")
-                    raise InvalidJSONException()
+                    raise InvalidJSONException(result, "Failed to decode json response")
 
                 self.logger.info(
                     f"Failed a request, retrying ({retry_count}/{retries})"
