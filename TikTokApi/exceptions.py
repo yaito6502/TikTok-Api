@@ -33,3 +33,7 @@ class InvalidJSONException(TikTokException):
 
 class InvalidResponseException(TikTokException):
     """The response from TikTok was invalid."""
+
+
+class InvalidMsTokenException(TikTokException):
+    """MsToken is invalaid"""

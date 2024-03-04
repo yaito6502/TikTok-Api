@@ -16,7 +16,11 @@ from .api.sound import Sound
 from .api.trending import Trending
 from .api.user import User
 from .api.video import Video
-from .exceptions import EmptyResponseException, InvalidJSONException
+from .exceptions import (
+    EmptyResponseException,
+    InvalidJSONException,
+    InvalidMsTokenException,
+)
 from .helpers import random_choice
 from .stealth import stealth_async
 
@@ -437,6 +441,8 @@ class TikTokApi:
                 data = json.loads(result)
                 if data.get("status_code") != 0:
                     self.logger.error(f"Got an unexpected status code: {data}")
+                if data.get("code") == "10000":
+                    raise InvalidMsTokenException(result, "Ms Token is invalid")
                 if data.get("status_code") is None:
                     raise EmptyResponseException(
                         result, "TikTok returned an empty json responce"
